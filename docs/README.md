@@ -1,5 +1,7 @@
 # Triton-distributed Documents
 
-## Build
-[Follow the instructions](build.md)
+* [Build Triton-distributed](build.md)
 
+* [Triton-distributed Primitives](primitives.md)
+
+* [Triton-distributed Autotuner](autotuner.md)

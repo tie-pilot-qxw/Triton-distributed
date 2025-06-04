@@ -1,9 +1,19 @@
-Build Triton-distributed
-==========================
+============
+Installation
+============
 
-The best practice to use Triton-distributed with the Nvidia backend:
---------------------------------------------------------------------------
+------------------------------------
+Build Triton-distributed from source
+------------------------------------
 
+
+----------------------------------
+Best practice for Nvidia backend:
+----------------------------------
+
++++++++++++++
+Requirements:
++++++++++++++
 - Python >=3.11 (suggest using virtual environment)
 - CUDA >=12.4
 - Torch >=2.4.1
@@ -11,15 +21,13 @@ The best practice to use Triton-distributed with the Nvidia backend:
 
 We recommend installation in `Nvidia PyTorch container <https://catalog.ngc.nvidia.com/orgs/nvidia/containers/pytorch/tags>`_.
 
-**if for AMD GPU:**
 
-- ROCM 6.3.0
-- Torch 2.4.1 with ROCM support
 
 Dependencies with other versions may also work well, but this is not guaranteed. If you find any problem in installing, please tell us in Issues.
 
+++++++
 Steps:
-------
+++++++
 
 1. **Prepare docker container:**
 
@@ -118,8 +126,9 @@ Steps:
       cd /home/Triton-distributed
       source scripts/setenv.sh
 
-Test your installation
------------------------
++++++++++++++++++++++++
+Test your installation:
++++++++++++++++++++++++
 
 **AllGather GEMM example on single node**
 
@@ -143,17 +152,24 @@ This example runs on a single node with 8 H800 GPUs.
 
    bash ./launch.sh ./python/triton_dist/test/nvidia/test_nvshmem_api.py
 
-Run All The Tutorials
----------------------
+-------------------------------
+Best practice for AMD backend:
+-------------------------------
 
-See examples in `tutorials <../tutorials/README.md>`
 
-To use Triton-distributed with the AMD backend:
----------------------------------------------------
++++++++++++++
+Requirements:
++++++++++++++
+
+- ROCM 6.3.0
+- Torch 2.4.1 with ROCM support
+
 
 Starting from the rocm/pytorch:rocm6.1_ubuntu22.04_py3.10_pytorch_2.4 Docker container
 
-**Steps:**
++++++++++++++
+Steps:
++++++++++++++
 
 1. **Clone the repo**
 
@@ -185,16 +201,12 @@ Starting from the rocm/pytorch:rocm6.1_ubuntu22.04_py3.10_pytorch_2.4 Docker con
 
       pip3 install -e python --verbose --no-build-isolation
 
-**Test your installation**
++++++++++++++++++++++++
+Test your installation:
++++++++++++++++++++++++
 
 **GEMM ReduceScatter example on single node**
 
 .. code-block:: sh
 
    bash ./launch_amd.sh ./python/triton_dist/test/amd/test_ag_gemm_intra_node.py 8192 8192 29568
-
-and see the following (reduced) output
-
-.. code-block:: sh
-
-   ✅ Triton and Torch match
