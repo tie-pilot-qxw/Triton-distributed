@@ -432,10 +432,11 @@ class CMakeExtension(Extension):
 def build_nvshmem(cap):
     nvshmem_bind_dir = os.path.join(get_base_dir(), "shmem", "nvshmem_bind")
     nvshmem_dir = os.path.join(get_base_dir(), "3rdparty", "nvshmem")
+    nvshmem_dir = os.getenv("NVSHMEM_SRC", nvshmem_dir)
     if not os.path.exists(nvshmem_dir) or len(os.listdir(nvshmem_dir)) == 0:
         # for github version: download_nvshmem()
         # subprocess.check_call(["git", "submodule", "update", "--init", "--recursive"])
-        raise RuntimeError("NVSHMEM is empty. Please `git submodule update --init --recursive`")
+        raise RuntimeError("NVSHMEM is empty. Please refer to README for NVSHMEM install")
     if not os.path.exists(nvshmem_bind_dir):
         raise RuntimeError("NVSHMEM bind source directory not found")
 
@@ -638,8 +639,9 @@ class CMakeBuild(TorchBuildExtension):
                 if torch.cuda.is_available():
                     if torch.version.hip is None:
                         cmake_args += ["-DTRITON_BUILD_PYNVSHMEM=ON"]
-                        nvshmem_dir = os.path.join(get_base_dir(), "3rdparty", "nvshmem", "build", "install")
-                        env["NVSHMEM_DIR"] = nvshmem_dir
+                        nvshmem_dir = os.path.join(get_base_dir(), "3rdparty", "nvshmem")
+                        nvshmem_dir = os.getenv("NVSHMEM_SRC", nvshmem_dir)
+                        env["NVSHMEM_DIR"] = os.path.join(nvshmem_dir, "build", "install")
             except Exception:
                 print("Cannot import torch.")
                 pass
