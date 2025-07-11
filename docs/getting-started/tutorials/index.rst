@@ -32,3 +32,5 @@ It is recommended that you first read the technique report, which contains desig
 
    /getting-started/tutorials/01-distributed-notify-wait
    /getting-started/tutorials/02-intra-node-allgather
+   /getting-started/tutorials/03-inter-node-allgather
+   /getting-started/tutorials/04-deepseek-infer-all2all
