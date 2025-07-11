@@ -7,9 +7,9 @@
 include "mlir/Pass/PassBase.td"
 
 def ConvertTritonDistributedToTritonGPU: Pass<"convert-triton-distributed-to-tritongpu", "mlir::ModuleOp"> {
-    let summary = "Convert Triton to TritonGPU(Distributed Extension)";
+    let summary = "Convert TritonDistributed to TritonGPU";
     let description = [{
-      This pass converts the Triton Dialect into the TritonGPU Dialect.
+      This pass converts the TritonDistributed Dialect into the TritonGPU Dialect.
       This is a partial conversion that also affects other dialects
       (namely `Arith`, `Math`, `SCF` and `CF`).
       For these dialects, and many Triton dialect operations the conversions
@@ -36,12 +36,15 @@ def ConvertTritonDistributedToTritonGPU: Pass<"convert-triton-distributed-to-tri
        Option<"threadsPerWarp", "threads-per-warp",
               "int32_t", /*default*/"32",
               "number of threads per warp">,
-        Option<"numCTAs", "num-ctas",
-              "int32_t", /*default*/"1",
-              "number of ctas in a cga">,
-        Option<"target", "target",
-              "std::string", /*default*/"\"\"",
-              "the GPU target, e.g., cuda:80, hip:gfx942">
+      Option<"numCTAs", "num-ctas",
+            "int32_t", /*default*/"1",
+            "number of ctas in a cga">,
+      Option<"target", "target",
+            "std::string", /*default*/"\"\"",
+            "the GPU target, e.g., cuda:80, hip:gfx942">,
+      Option<"enableSourceRemat", "enable-source-remat",
+            "bool", /*default*/"false",
+            "enable trivial source rematerialization">,
    ];
 }
 

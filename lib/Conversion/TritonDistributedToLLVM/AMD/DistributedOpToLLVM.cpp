@@ -22,6 +22,7 @@
  */
 #include "TritonDistributed/Conversion/TritonDistributedToLLVM/TritonDistributedToLLVMPass.h"
 #include "mlir/Conversion/LLVMCommon/Pattern.h"
+#include "mlir/Dialect/ControlFlow/IR/ControlFlowOps.h"
 #include "mlir/Dialect/GPU/IR/GPUDialect.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
 #include "triton/Conversion/TritonGPUToLLVM/Utility.h"
@@ -168,7 +169,7 @@ struct WaitOpConversion
     Value workIDX = rewriter.create<ROCDL::ThreadIdXOp>(loc, i32_ty);
     rewriter.create<cf::BranchOp>(loc, whileEntryBlock, workIDX);
 
-    // while entry blcok
+    // while entry block
     whileEntryBlock->addArgument(workIDX.getType(), loc);
     rewriter.setInsertionPointToEnd(whileEntryBlock);
     Value index = whileEntryBlock->getArgument(0);

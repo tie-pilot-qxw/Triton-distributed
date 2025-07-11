@@ -16,7 +16,7 @@ In doing so, you will learn about:
 .. code-block:: bash
 
     # To run this tutorial
-    bash ./launch.sh ./tutorials/01-distributed-notify-wait.py
+    bash ./scripts/launch.sh ./tutorials/01-distributed-notify-wait.py
 
 
 Kernel
