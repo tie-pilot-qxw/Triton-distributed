@@ -30,7 +30,7 @@ In this tutorial, you will write a low latency all gather kernel using using Tri
 .. code-block:: bash
 
     # To run this tutorial
-    bash ./launch.sh ./tutorials/03-inter-node-allgather.py
+    bash ./scripts/launch.sh ./tutorials/03-inter-node-allgather.py
 
 """
 import datetime

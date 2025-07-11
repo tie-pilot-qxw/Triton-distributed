@@ -36,7 +36,7 @@ In doing so, you will learn about:
 .. code-block:: bash
 
     # To run this tutorial
-    bash ./launch.sh ./tutorials/08-overlapping-gemm-reduce-scatter.py
+    bash ./scripts/launch.sh ./tutorials/08-overlapping-gemm-reduce-scatter.py
 
 """
 

@@ -35,7 +35,7 @@ In doing so, you will learn about:
 .. code-block:: bash
 
     # To run this tutorial
-    bash ./launch.sh ./tutorials/05-intra-node-reduce-scatter.py
+    bash ./scripts/launch.sh ./tutorials/05-intra-node-reduce-scatter.py
 
 """
 

@@ -401,6 +401,7 @@ class CMakeClean(clean):
 class CMakeBuildPy(build_py):
 
     def run(self) -> None:
+        add_links(external_only=False, materialization=False)
         self.run_command('build_ext')
         return super().run()
 
@@ -466,8 +467,7 @@ class CMakeBuild(TorchBuildExtension):
         TorchBuildExtension.finalize_options(self)
 
     def run(self):
-        # We creates symbolic links for each file in backend separately. Since the nvshmem bitcode is moved to nvidia/lib,
-        # it needs to be built first.
+        add_links(external_only=False, materialization=False)
         build_shmem()
         for ext in self.extensions:
             if isinstance(ext, CMakeExtension):
@@ -796,7 +796,7 @@ class plugin_bdist_wheel(bdist_wheel):
 class plugin_develop(develop):
 
     def run(self):
-        add_links(external_only=True)
+        add_links(external_only=False)
         super().run()
 
 
@@ -810,14 +810,14 @@ class plugin_editable_wheel(editable_wheel):
 class plugin_egg_info(egg_info):
 
     def run(self):
-        add_links(external_only=True, materialization=False)
+        add_links(external_only=False, materialization=False)
         super().run()
 
 
 class plugin_install(install):
 
     def run(self):
-        add_links(external_only=True)
+        add_links(external_only=False)
         super().run()
 
 
