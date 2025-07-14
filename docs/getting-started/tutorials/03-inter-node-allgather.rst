@@ -1,3 +1,5 @@
+.. _sphx_glr_getting-started_tutorials_03-inter-node-allgather.rst:
+
 Inter-node AllGather
 ====================
 In this tutorial, you will write a low latency all gather kernel using using Triton-distributed.
@@ -138,6 +140,7 @@ Benchmark
 ---------
 
 .. code-block:: Python
+    
     import datetime
     import os
     from dataclasses import dataclass
