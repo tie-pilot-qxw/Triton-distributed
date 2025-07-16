@@ -28,10 +28,11 @@ def min_dot_size(target: GPUTarget):
         lhs_bitwidth = lhs_type.scalar.primitive_bitwidth
         rhs_bitwidth = rhs_type.scalar.primitive_bitwidth
         assert lhs_bitwidth == rhs_bitwidth, "lhs and rhs bitwidth must be the same"
+        # For small M/N the input we can still use tensorcores with padding.
         if lhs_bitwidth == 8:
-            return (16, 16, 32)
+            return (1, 1, 32)
         else:
-            return (16, 16, 16)
+            return (1, 1, 16)
 
     return check_dot_compatibility
 
@@ -96,6 +97,11 @@ def ptx_get_version(cuda_version) -> int:
         return 70 + minor
     if major == 10:
         return 63 + minor
+
+    if major >= 13:
+        base_ptx = 90
+        return base_ptx + (major - 13) * 10 + minor
+
     raise RuntimeError("Triton only support CUDA 10.0 or higher, but got CUDA version: " + cuda_version)
 
 
@@ -308,6 +314,7 @@ class CUDAOptions:
     num_warps: int = 4
     num_ctas: int = 1
     num_stages: int = 3
+    warp_size: int = 32
     # maxnreg corresponds to the ptx parameter .maxnreg, which controls the
     # maximum number of 32-bit registers used by one thread.
     maxnreg: Optional[int] = None
@@ -329,6 +336,7 @@ class CUDAOptions:
     backend_name: str = 'cuda'
     sanitize_overflow: bool = True
     arch: str = None
+    instrumentation_mode: str = ""
 
     def __post_init__(self):
         default_libdir = Path(__file__).parent / 'lib'
@@ -353,6 +361,7 @@ class CUDAOptions:
 
 
 class CUDABackend(BaseBackend):
+    instrumentation = None
 
     @staticmethod
     def supports_target(target: GPUTarget):
@@ -424,6 +433,8 @@ class CUDABackend(BaseBackend):
     def load_dialects(self, ctx):
         distributed.ir.load_dialects(ctx)
         nvidia.load_dialects(ctx)
+        if CUDABackend.instrumentation:
+            CUDABackend.instrumentation.load_dialects(ctx)
 
     @staticmethod
     def make_ttir(mod, metadata, opt, capability):
@@ -457,6 +468,7 @@ class CUDABackend(BaseBackend):
         dump_enabled = pm.enable_debug()
         # TritonDistributed Extension
         distributed.passes.ttir.add_convert_to_ttgpuir_ext(pm, f"cuda:{capability}", opt.num_warps, 32, opt.num_ctas)
+        passes.ttir.add_convert_to_ttgpuir(pm, f"cuda:{capability}", opt.num_warps, 32, opt.num_ctas)
         # optimize TTGIR
         passes.ttgpuir.add_coalesce(pm)
         if capability // 10 >= 8:
@@ -476,6 +488,7 @@ class CUDABackend(BaseBackend):
             passes.ttir.add_triton_licm(pm)
             passes.common.add_canonicalizer(pm)
             passes.ttgpuir.add_combine_tensor_select_and_if(pm)
+            nvidia.passes.hopper.add_hopper_warpspec(pm, opt.num_stages, dump_enabled)
             passes.ttgpuir.add_assign_latencies(pm, opt.num_stages)
             passes.ttgpuir.add_schedule_loops(pm)
             passes.ttgpuir.add_pipeline(pm, opt.num_stages, dump_enabled)
@@ -508,21 +521,24 @@ class CUDABackend(BaseBackend):
         passes.common.add_symbol_dce(pm)
         if capability // 10 >= 9:
             nvidia.passes.ttnvgpuir.add_tma_lowering(pm)
-            nvidia.passes.ttnvgpuir.add_fence_insertion(pm)
+        nvidia.passes.ttnvgpuir.add_fence_insertion(pm, capability)
+        nvidia.passes.ttnvgpuir.add_lower_mma(pm)
         passes.common.add_sccp(pm)
         passes.common.add_canonicalizer(pm)
+
         pm.run(mod)
         metadata["cluster_dims"] = (cluster_info.clusterDimX, cluster_info.clusterDimY, cluster_info.clusterDimZ)
         tensordesc_meta = mod.get_tensordesc_metadata()
         metadata["tensordesc_meta"] = tensordesc_meta
         return mod
 
-    def ttgir_opt(self, src, metadata, options, capability):
+    def gluon_to_ttgir(self, src, metadata, options, capability):
         mod = src
         pm = ir.pass_manager(mod.context)
         pm.enable_debug()
 
         passes.ttgpuir.add_inliner(pm)
+        passes.gluon.add_resolve_auto_encodings(pm)
         passes.common.add_sccp(pm)
         passes.ttir.add_loop_aware_cse(pm)
         passes.ttgpuir.add_canonicalizer(pm)
@@ -540,13 +556,19 @@ class CUDABackend(BaseBackend):
         pm = ir.pass_manager(mod.context)
         pm.enable_debug()
 
-        nvidia.passes.ttnvgpuir.add_lower_mma(pm)
         passes.ttgpuir.add_combine_tensor_select_and_if(pm)
         passes.ttgpuir.add_allocate_warp_groups(pm)
         passes.convert.add_scf_to_cf(pm)
         passes.ttgpuir.add_allocate_shared_memory(pm)
         nvidia.passes.ttnvgpuir.add_allocate_tensor_memory(pm)
+        if knobs.compilation.enable_experimental_consan:
+            # Call ConcurrencySanitizerPass here, before allocating global scratch memory but after allocating tensor and shared
+            passes.ttgpuir.add_concurrency_sanitizer(pm)
         passes.ttgpuir.add_allocate_global_scratch_memory(pm)
+        nvidia.passes.ttnvgpuir.add_proxy_fence_insertion(pm, capability)
+        # instrumentation point here so we can override IRs above (e.g., ttir and ttgir)
+        if CUDABackend.instrumentation:
+            CUDABackend.instrumentation.patch("ttgpuir_to_llvmir", pm, mod.context)
         nvidia.passes.ttgpuir.add_to_llvmir(pm, capability, ptx_version)
         # TritonDistributed Extension: Distributed/SIMT Dialect -> LLVM
         distributed.passes.ttgpuir.nvidia.add_convert_triton_distributed_to_llvm(pm, capability, ptx_version)
@@ -559,6 +581,9 @@ class CUDABackend(BaseBackend):
         passes.common.add_symbol_dce(pm)
         if not knobs.compilation.disable_line_info:
             passes.llvmir.add_di_scope(pm)
+        if CUDABackend.instrumentation:
+            CUDABackend.instrumentation.patch("llvmir_to_llvm", pm, mod.context)
+
         pm.run(mod)
         # LLVM-IR (MLIR) -> LLVM-IR (LLVM)
         llvm.init_targets()
@@ -611,6 +636,8 @@ class CUDABackend(BaseBackend):
         metadata["tmem_size"] = src.get_int_attr("ttg.tensor_memory_size")
         metadata["global_scratch_size"] = src.get_int_attr("ttg.global_scratch_memory_size")
         metadata["global_scratch_align"] = src.get_int_attr("ttg.global_scratch_memory_alignment")
+        metadata["profile_scratch_size"] = src.get_int_attr("ttg.profile_scratch_memory_size") or 0
+        metadata["profile_scratch_align"] = src.get_int_attr("ttg.profile_scratch_memory_alignment") or 1
         ret = str(llvm_mod)
         del llvm_mod
         del context
@@ -725,7 +752,7 @@ class CUDABackend(BaseBackend):
             stages["ttir"] = lambda src, metadata: self.make_ttir(src, metadata, options, capability)
             stages["ttgir"] = lambda src, metadata: self.make_ttgir(src, metadata, options, capability)
         elif language == Language.GLUON:
-            stages["ttgir"] = lambda src, metadata: self.ttgir_opt(src, metadata, options, capability)
+            stages["ttgir"] = lambda src, metadata: self.gluon_to_ttgir(src, metadata, options, capability)
         stages["llir"] = lambda src, metadata: self.make_llir(src, metadata, options, capability)
         stages["ptx"] = lambda src, metadata: self.make_ptx(src, metadata, options, self.target.arch)
         stages["cubin"] = lambda src, metadata: self.make_cubin(src, metadata, options, self.target.arch)

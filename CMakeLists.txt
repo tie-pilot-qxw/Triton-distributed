@@ -232,7 +232,7 @@ if(TRITON_BUILD_PYTHON_MODULE)
   endif()
   # We always build proton dialect
   list(APPEND TRITON_PLUGIN_NAMES "proton")
-  add_subdirectory(3rdparty/triton/third_party/proton/dialect)
+  add_subdirectory(3rdparty/triton/third_party/proton/Dialect)
   # We always build distributed dialect
   list(APPEND TRITON_PLUGIN_NAMES "distributed")
 
@@ -360,7 +360,7 @@ if(NOT TRITON_BUILD_PYTHON_MODULE)
   foreach(CODEGEN_BACKEND ${TRITON_CODEGEN_BACKENDS})
     add_subdirectory(3rdparty/triton/third_party/${CODEGEN_BACKEND})
   endforeach()
-  add_subdirectory(3rdparty/triton/third_party/proton/dialect)
+  add_subdirectory(3rdparty/triton/third_party/proton/Dialect)
 endif()
 
 find_package(Threads REQUIRED)

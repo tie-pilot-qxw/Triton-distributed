@@ -12,7 +12,6 @@ add_triton_library(TritonDistributedToLLVM
 
     LINK_LIBS PUBLIC
     TritonGPUToLLVM
-    TritonProtonToLLVM
     DistributedIR
     SIMTIR
     TritonAMDGPUIR
