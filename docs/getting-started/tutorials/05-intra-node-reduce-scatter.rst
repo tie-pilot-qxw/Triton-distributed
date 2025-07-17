@@ -124,7 +124,7 @@ This kernel starts the accumulation from the `offset`.
 Scatter Kernel
 --------------
 
-We perform rank level swizzle in scatter kernel. Each rank perform scatter start from the next rank of the current. In this way, the send/recv communication volume of each rank is balanced.
+We perform rank level swizzle in the scatter kernel. Each rank perform scatter start from the next rank of the current. In this way, the send/recv communication volume of each rank is balanced.
 For time start from 0 to local_world_size, the communication order between ranks:
                 time 0: 0->1, 1->2, 2->3, 3->0
                 time 1: 0->2, 1->3, 2->0, 3->1
