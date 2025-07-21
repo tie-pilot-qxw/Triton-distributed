@@ -103,8 +103,11 @@ def broadcast_cpu(tensor: torch.Tensor, src: int, group: torch.distributed.Proce
         torch.distributed.broadcast(tensor, src=src, group=group)
     torch.cuda.synchronize()
 
-
+_nvshmem_initialized = False
 def init_nvshmem_by_torch_process_group(pg: torch.distributed.ProcessGroup):
+    global _nvshmem_initialized
+    if _nvshmem_initialized:
+        return
     # Extract rank, nranks from process group
     num_ranks = pg.size()
     rank_id = pg.rank()
@@ -116,6 +119,7 @@ def init_nvshmem_by_torch_process_group(pg: torch.distributed.ProcessGroup):
     from cuda.core.experimental import Device
     nvshmem.core.init(device=Device(torch.cuda.current_device()), uid=broadcast_objects[0], rank=rank_id,
                       nranks=num_ranks, initializer_method="uid")
+    _nvshmem_initialized = True
     # nvshmem.core.utils._configure_logging("DEBUG")
 
 
