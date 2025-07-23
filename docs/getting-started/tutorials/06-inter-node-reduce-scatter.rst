@@ -69,9 +69,13 @@ In this way, the P2P communication volume of each node is balanced, and the last
 is performed on the current node without the need for inter-node communication.
 
 For time start from 0 to nnode - 1, the communication order between nodes:
+
     time 0: 0->1, 1->2, 2->3, 3->0
+
     time 1: 0->2, 1->3, 2->0, 3->1
+
     time 2: 0->3, 1->0, 2->1, 3->2
+
     time 3: 0->0, 1->1, 2->2, 3->3
 
 .. code-block:: Python
@@ -192,50 +196,50 @@ Benchmark
 .. code-block:: Python
 
     def torch_rs(
-    input: torch.Tensor,  # [M, N]
-    TP_GROUP,
-):
-    M, N = input.shape
-    rs_output = torch.empty((M // WORLD_SIZE, N), dtype=input.dtype, device=input.device)
-    torch.distributed.reduce_scatter_tensor(rs_output, input, group=TP_GROUP)
-    return rs_output
+        input: torch.Tensor,  # [M, N]
+        TP_GROUP,
+    ):
+        M, N = input.shape
+        rs_output = torch.empty((M // WORLD_SIZE, N), dtype=input.dtype, device=input.device)
+        torch.distributed.reduce_scatter_tensor(rs_output, input, group=TP_GROUP)
+        return rs_output
 
 
-if __name__ == "__main__":
-    # init
-    RANK = int(os.environ.get("RANK", 0))
-    LOCAL_RANK = int(os.environ.get("LOCAL_RANK", 0))
-    WORLD_SIZE = int(os.environ.get("WORLD_SIZE", 1))
-    LOCAL_WORLD_SIZE = int(os.environ.get("LOCAL_WORLD_SIZE", 1))
+    if __name__ == "__main__":
+        # init
+        RANK = int(os.environ.get("RANK", 0))
+        LOCAL_RANK = int(os.environ.get("LOCAL_RANK", 0))
+        WORLD_SIZE = int(os.environ.get("WORLD_SIZE", 1))
+        LOCAL_WORLD_SIZE = int(os.environ.get("LOCAL_WORLD_SIZE", 1))
 
-    TP_GROUP = initialize_distributed()
-    torch.cuda.synchronize()
+        TP_GROUP = initialize_distributed()
+        torch.cuda.synchronize()
 
-    output_dtype = torch.bfloat16
-    M, N = 8192, 16384
-    rs_ctx = create_reduce_scater_2d_ctx(M, N, RANK, WORLD_SIZE, LOCAL_WORLD_SIZE, output_dtype,
-                                         overlap_with_gemm=False)
+        output_dtype = torch.bfloat16
+        M, N = 8192, 16384
+        rs_ctx = create_reduce_scater_2d_ctx(M, N, RANK, WORLD_SIZE, LOCAL_WORLD_SIZE, output_dtype,
+                                            overlap_with_gemm=False)
 
-    # gen input
-    input = torch.rand((M, N), dtype=output_dtype).cuda()
+        # gen input
+        input = torch.rand((M, N), dtype=output_dtype).cuda()
 
-    # torch impl
-    torch_output = torch_rs(input, TP_GROUP)
+        # torch impl
+        torch_output = torch_rs(input, TP_GROUP)
 
-    nvshmem_barrier_all_on_stream(torch.cuda.current_stream())
+        nvshmem_barrier_all_on_stream(torch.cuda.current_stream())
 
-    # dist triton impl
-    dist_triton_output = reduce_scatter_2d_op(input, rs_ctx)
+        # dist triton impl
+        dist_triton_output = reduce_scatter_2d_op(input, rs_ctx)
 
-    nvshmem_barrier_all_on_stream(torch.cuda.current_stream())
-    torch.cuda.synchronize()
+        nvshmem_barrier_all_on_stream(torch.cuda.current_stream())
+        torch.cuda.synchronize()
 
-    # check
-    atol, rtol = 6e-2, 6e-2
-    torch.testing.assert_close(torch_output, dist_triton_output, atol=atol, rtol=rtol)
-    torch.cuda.synchronize()
-    print(f"RANK {RANK}: pass!")
-    rs_ctx.finalize()
-    nvshmem.core.finalize()
-    torch.distributed.destroy_process_group()
+        # check
+        atol, rtol = 6e-2, 6e-2
+        torch.testing.assert_close(torch_output, dist_triton_output, atol=atol, rtol=rtol)
+        torch.cuda.synchronize()
+        print(f"RANK {RANK}: pass!")
+        rs_ctx.finalize()
+        nvshmem.core.finalize()
+        torch.distributed.destroy_process_group()
 

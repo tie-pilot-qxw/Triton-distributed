@@ -127,9 +127,12 @@ Scatter Kernel
 We perform rank level swizzle in the scatter kernel. Each rank perform scatter start from the next rank of the current. In this way, the send/recv communication volume of each rank is balanced.
 For time start from 0 to local_world_size, the communication order between ranks:
                 time 0: 0->1, 1->2, 2->3, 3->0
+
                 time 1: 0->2, 1->3, 2->0, 3->1
+
                 time 2: 0->3, 1->0, 2->1, 3->2
-                time 3: 0->0, 1->1, 2->2, 3->3
+                
+                time 3: 0->0, 1->1, 2->2, 3->3  
 
 .. code-block:: Python
 
@@ -188,42 +191,42 @@ Benckmark
         return rs_output
 
 
-if __name__ == "__main__":
-    # init
-    RANK = int(os.environ.get("RANK", 0))
-    LOCAL_RANK = int(os.environ.get("LOCAL_RANK", 0))
-    WORLD_SIZE = int(os.environ.get("WORLD_SIZE", 1))
-    LOCAL_WORLD_SIZE = int(os.environ.get("LOCAL_WORLD_SIZE", 1))
-    TP_GROUP = triton_dist.utils.initialize_distributed()
-    torch.cuda.synchronize()
+    if __name__ == "__main__":
+        # init
+        RANK = int(os.environ.get("RANK", 0))
+        LOCAL_RANK = int(os.environ.get("LOCAL_RANK", 0))
+        WORLD_SIZE = int(os.environ.get("WORLD_SIZE", 1))
+        LOCAL_WORLD_SIZE = int(os.environ.get("LOCAL_WORLD_SIZE", 1))
+        TP_GROUP = triton_dist.utils.initialize_distributed()
+        torch.cuda.synchronize()
 
-    assert LOCAL_WORLD_SIZE == WORLD_SIZE, "runs on 1 node expected."
+        assert LOCAL_WORLD_SIZE == WORLD_SIZE, "runs on 1 node expected."
 
-    dtype = torch.bfloat16
-    M, N = 8192, 16384
+        dtype = torch.bfloat16
+        M, N = 8192, 16384
 
-    input = torch.rand((M, N), dtype=dtype).cuda()
+        input = torch.rand((M, N), dtype=dtype).cuda()
 
-    symm_scatter_bufs = nvshmem_create_tensors([M, N], dtype, RANK, LOCAL_WORLD_SIZE)
-    symm_sync_buf = nvshmem_create_tensor((LOCAL_WORLD_SIZE, ), dtype=torch.int32)
-    symm_sync_buf.fill_(0)
+        symm_scatter_bufs = nvshmem_create_tensors([M, N], dtype, RANK, LOCAL_WORLD_SIZE)
+        symm_sync_buf = nvshmem_create_tensor((LOCAL_WORLD_SIZE, ), dtype=torch.int32)
+        symm_sync_buf.fill_(0)
 
-    torch_output = torch_rs(input, TP_GROUP)
+        torch_output = torch_rs(input, TP_GROUP)
 
-    nvshmem_barrier_all_on_stream(torch.cuda.current_stream())
+        nvshmem_barrier_all_on_stream(torch.cuda.current_stream())
 
-    dist_triton_output = reducer_scatter_intra_node(input, symm_scatter_bufs, symm_sync_buf, LOCAL_RANK,
-                                                    LOCAL_WORLD_SIZE)
+        dist_triton_output = reducer_scatter_intra_node(input, symm_scatter_bufs, symm_sync_buf, LOCAL_RANK,
+                                                        LOCAL_WORLD_SIZE)
 
-    nvshmem_barrier_all_on_stream(torch.cuda.current_stream())
-    torch.cuda.synchronize()
+        nvshmem_barrier_all_on_stream(torch.cuda.current_stream())
+        torch.cuda.synchronize()
 
-    atol, rtol = 6e-2, 6e-2
-    torch.testing.assert_close(torch_output, dist_triton_output, atol=atol, rtol=rtol)
-    torch.cuda.synchronize()
-    print(f"RANK {LOCAL_RANK}: pass!")
+        atol, rtol = 6e-2, 6e-2
+        torch.testing.assert_close(torch_output, dist_triton_output, atol=atol, rtol=rtol)
+        torch.cuda.synchronize()
+        print(f"RANK {LOCAL_RANK}: pass!")
 
-    nvshmem_free_tensor_sync(symm_sync_buf)
-    nvshmem_free_tensor_sync(symm_scatter_bufs[LOCAL_RANK])
-    nvshmem.core.finalize()
-    torch.distributed.destroy_process_group()
+        nvshmem_free_tensor_sync(symm_sync_buf)
+        nvshmem_free_tensor_sync(symm_scatter_bufs[LOCAL_RANK])
+        nvshmem.core.finalize()
+        torch.distributed.destroy_process_group()
