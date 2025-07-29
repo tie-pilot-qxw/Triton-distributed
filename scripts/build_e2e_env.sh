@@ -90,12 +90,6 @@ if command -v nvcc &> /dev/null; then
 elif command -v hipcc &> /dev/null; then
     echo "AMD ROCm compiler (hipcc) found. Proceeding with ROCm-specific installations."
     echo "Note: flashinfer does not currently support ROCm and will be skipped."
-    echo "Install FlashAttention for AMD backend."
-    git clone https://github.com/ROCm/flash-attention.git &&\
-    cd flash-attention
-    git checkout main_perf
-    python3 setup.py install
-    cd ../
     echo "Finished installing ROCm-specific libraries."
 else
     echo "NVIDIA CUDA compiler (nvcc) and AMD ROCm compiler (hipcc) not found."
