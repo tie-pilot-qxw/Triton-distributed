@@ -396,10 +396,10 @@ if __name__ == "__main__":
     WORLD_SIZE = int(os.getenv("WORLD_SIZE", "-1"))
     LOCAL_WORLD_SIZE = int(os.getenv("LOCAL_WORLD_SIZE", "-1"))
 
-    if WORLD_SIZE == LOCAL_WORLD_SIZE:
-        print("Skip the test because this should be performed with 2 nodes or higher")
-        import sys
-        sys.exit()
+    # if WORLD_SIZE == LOCAL_WORLD_SIZE:
+    #     print("Skip the test because this should be performed with 2 nodes or higher")
+    #     import sys
+    #     sys.exit()
 
     if torch.cuda.get_device_capability()[0] < 9:
         print("Skip the test because the device is not sm90 or higher")

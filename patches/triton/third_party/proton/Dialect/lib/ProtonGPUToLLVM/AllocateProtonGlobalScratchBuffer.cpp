@@ -24,7 +24,9 @@ struct AllocateProtonGlobalScratchBufferPass
       // are currently pseduo instrunctions at this point and will get picked up
       // here and trigger the FunctionOpInterface range based assert below
       StringRef funcName(op.getNameAttr());
-      if (!(funcName.contains("__") || funcName.contains("nvshmem"))) {
+      // print the function name for debugging
+      printf("Function name: %s\n", funcName.str().c_str());
+      if (!(funcName.contains("__") || funcName.contains("nvshmem") || funcName.contains("llvm"))) {
         numFuncOps += 1;
         func = op;
       }

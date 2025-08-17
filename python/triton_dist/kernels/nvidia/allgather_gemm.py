@@ -443,6 +443,7 @@ class AllGatherGEMMTensorParallelContext:
     for_correctness: bool = False
 
     def __post_init__(self):
+        print(f"num_ranks: {self.num_ranks}, num_local_ranks: {self.num_local_ranks}")
         assert self.num_ranks % self.num_local_ranks == 0
         self.is_multinode = self.num_ranks > self.num_local_ranks
         self.n_nodes = self.num_ranks // self.num_local_ranks
@@ -486,7 +487,7 @@ class AllGatherGEMMTensorParallelContext:
         nvshmem_free_tensor_sync(self.symm_comm_buf)
 
 
-def create_ag_gemm_context(tensor_A, tensor_B, rank, num_ranks, max_M, num_local_ranks=8, BLOCK_M=128, BLOCK_N=256,
+def create_ag_gemm_context(tensor_A, tensor_B, rank, num_ranks, max_M, num_local_ranks=4, BLOCK_M=128, BLOCK_N=256,
                            BLOCK_K=64, stages=3, ag_intranode_stream=None, ag_internode_stream=None,
                            for_correctness=False):
     """create context for allgather gemm intra-node

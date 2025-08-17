@@ -154,10 +154,20 @@ if __name__ == "__main__":
     symm_signal.fill_(0)  # The initial value of signal should be 0s
     # We need barrier all to make sure the above initialization visible to other ranks
     nvshmem_barrier_all_on_stream(torch.cuda.current_stream())
+    start = torch.cuda.Event(enable_timing=True)
+    end = torch.cuda.Event(enable_timing=True)
+    start.record(torch.cuda.current_stream())
     cp_engine_producer_all_gather_full_mesh_pull(
         rank, num_ranks, local_data, symm_ag_buffers, torch.cuda.current_stream(),
         symm_signals)  # Here we use current stream for allgather, we can pass any other stream for comm-comp fusion.
 
+    end.record(torch.cuda.current_stream())
+    torch.cuda.synchronize()
+    execution_time = start.elapsed_time(end)
+    # 计算正确的带宽：总传输数据量 = (num_ranks-1) * M_per_rank * N * 2字节 (float16)
+    total_data_bytes = (num_ranks - 1) * M_per_rank * N * 2  # 每个rank需要从其他ranks拉取数据
+    bandwidth_gbps = total_data_bytes / (execution_time * 1e-3) / (1024**3)  # GB/s
+    dist_print(f"Rank {rank} uses time: {execution_time:.3f} ms for Copy Engine AllGather, bandwidth: {bandwidth_gbps:.3f} GB/s", need_sync=True, allowed_ranks="all")
     # Check results. Pull mode doesn't need sync after communication
     dist_print(f"Rank {rank} CpEngine Result:\n", symm_ag_buffer, need_sync=True, allowed_ranks="all")
     dist_print(f"Rank {rank} CpEngine Signal:\n", symm_signal, need_sync=True, allowed_ranks="all")
@@ -174,13 +184,21 @@ if __name__ == "__main__":
     # We need barrier all to make sure the above initialization visible to other ranks
     nvshmem_barrier_all_on_stream(torch.cuda.current_stream())
     grid = lambda META: (int(num_ranks), )
+    start = torch.cuda.Event(enable_timing=True)
+    end = torch.cuda.Event(enable_timing=True)
+    start.record()
     nvshmem_device_producer_all_gather_2d_put_block_kernel[grid](
         symm_ag_buffer, symm_signal, M_per_rank * N,  # No. of elems of local data
         local_data.element_size(),  # element size
         1,  # signal target, can be any other value in practice
         rank, num_ranks, num_ranks)
+    end.record()
+    torch.cuda.synchronize()
+    execution_time = start.elapsed_time(end)  # in ms
     # Need to sync all to guarantee the completion of communication
     nvshmem_barrier_all_on_stream(torch.cuda.current_stream())
+
+    dist_print(f"Rank {rank} uses time: {execution_time:.3f} ms for NVSHMEM AllGather, bandwidth: {M_per_rank * N / (execution_time * 1e3):.3f} GB/s", need_sync=True, allowed_ranks="all")
 
     # Check results. Pull mode doesn't need sync after communication
     dist_print(f"Rank {rank} NVSHMEM Result:\n", symm_ag_buffer, need_sync=True, allowed_ranks="all")

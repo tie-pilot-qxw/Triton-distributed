@@ -125,7 +125,7 @@ export NVSHMEM_BOOTSTRAP_UID_SOCK_FAMILY=${NVSHMEM_BOOTSTRAP_UID_SOCK_FAMILY:-AF
 
 check_nvshmem_bootstrap_uid_sock
 
-nproc_per_node=${ARNOLD_WORKER_GPU:=$(nvidia-smi --list-gpus | wc -l)}
+nproc_per_node=4 # ${ARNOLD_WORKER_GPU:=$(nvidia-smi --list-gpus | wc -l)}
 nnodes=${ARNOLD_WORKER_NUM:=1}
 node_rank=${ARNOLD_ID:=0}
 
