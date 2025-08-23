@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.18)
+cmake_minimum_required(VERSION 3.20)
 
 if(POLICY CMP0116)
 # Introduced in cmake 3.20
@@ -24,6 +24,7 @@ option(TRITON_BUILD_DISTRIBUTED "Build the Triton Distributed" ON)
 option(USE_TRITON_DISTRIBUTED_AOT "Build the Triton Distributed with AOT" OFF)
 option(TRITON_BUILD_UT "Build C++ Triton Unit Tests" ON)
 option(TRITON_BUILD_WITH_CCACHE "Build with ccache (if available)" ON)
+option(TRITON_BUILD_TLX "Build Triton TLX" ON)
 set(TRITON_CODEGEN_BACKENDS "" CACHE STRING "Enable different codegen backends")
 
 if(TRITON_BUILD_WITH_CCACHE)
@@ -231,6 +232,12 @@ if(TRITON_BUILD_PYTHON_MODULE)
   # We always build distributed dialect
   list(APPEND TRITON_PLUGIN_NAMES "distributed")
 
+  if (TRITON_BUILD_TLX)
+    add_subdirectory(3rdparty/triton/third_party/tlx)
+  endif()
+  list(APPEND TRITON_PLUGIN_NAMES "tlx")
+  add_subdirectory(3rdparty/triton/third_party/tlx/dialect)
+
   get_property(triton_libs GLOBAL PROPERTY TRITON_LIBS)
   get_property(triton_plugins GLOBAL PROPERTY TRITON_PLUGINS)
   set(TRITON_LIBRARIES
@@ -356,6 +363,7 @@ if(NOT TRITON_BUILD_PYTHON_MODULE)
     add_subdirectory(3rdparty/triton/third_party/${CODEGEN_BACKEND})
   endforeach()
   add_subdirectory(3rdparty/triton/third_party/proton/dialect)
+  add_subdirectory(3rdparty/triton/third_party/tlx/dialect)
 endif()
 
 find_package(Threads REQUIRED)

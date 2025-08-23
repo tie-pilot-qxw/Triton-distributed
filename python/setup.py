@@ -620,6 +620,7 @@ class CMakeBuild(build_ext):
         env = os.environ.copy()
         cmake_dir = get_cmake_dir()
         subprocess.check_call(["cmake", self.base_dir] + cmake_args, cwd=cmake_dir, env=env)
+        update_symlink(Path(self.base_dir) / "compile_commands.json", cmake_dir / "compile_commands.json")
         subprocess.check_call(["cmake", "--build", "."] + build_args, cwd=cmake_dir)
         subprocess.check_call(["cmake", "--build", ".", "--target", "mlir-doc"], cwd=cmake_dir)
 
@@ -789,6 +790,10 @@ def add_link_to_distributed():
     triton_install_dir = os.path.join(os.path.dirname(__file__), "triton")
     update_symlink(triton_install_dir, triton_dir)
 
+def add_link_to_tlx():
+    src_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir, "3rdparty", "triton", "third_party", "tlx", "language", "tlx"))
+    install_dir = os.path.join(os.path.dirname(__file__), os.pardir, "3rdparty", "triton", "python", "triton", "language", "extra", "tlx")
+    update_symlink(install_dir, src_dir)
 
 def add_links(external_only, materialization=False):
     add_link_to_backends(external_only=external_only, materialization=materialization)
@@ -796,7 +801,7 @@ def add_links(external_only, materialization=False):
         add_link_to_proton()
     if not external_only and check_env_flag("TRITON_BUILD_DISTRIBUTED", "ON"):  # Default ON
         add_link_to_distributed()
-
+    add_link_to_tlx()
 
 class plugin_bdist_wheel(bdist_wheel):
 
@@ -924,6 +929,7 @@ def get_packages():
     for pkg in _packages:
         if os.path.exists(pkg):
             packages.append(pkg)
+    packages.append("triton.language.extra.tlx")
     return packages
 
 
