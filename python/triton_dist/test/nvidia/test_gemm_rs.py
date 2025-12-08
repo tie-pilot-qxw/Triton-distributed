@@ -112,14 +112,21 @@ THRESHOLD_MAP = {
     torch.float8_e5m2: 1e-2,
 }
 
+configs = {
+    "LLaMA-7B": {"M": 8192, "K": 11008, "N": 4096, "BM": 128, "BN": 256, "BK": 64, "Stage": 3},
+    "LLaMA-3.1-8B": {"M": 8192, "K": 14336, "N": 4096, "BM": 128, "BN": 256, "BK": 64, "Stage": 3},
+    "LLaMA-3.1-70B": {"M": 8192, "K": 28672, "N": 8192, "BM": 128, "BN": 256, "BK": 64, "Stage": 3},
+    "LLaMA-3.1-405B": {"M": 8192, "K": 53248, "N": 16384, "BM": 128, "BN": 256, "BK": 64, "Stage": 3},
+    "Qwen2-72B": {"M": 8192, "K": 29568, "N": 8192, "BM": 128, "BN": 256, "BK": 64, "Stage": 3},
+}
 
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("M", type=int)
     parser.add_argument("N", type=int)
     parser.add_argument("K", type=int)
-    parser.add_argument("--warmup", default=20, type=int, help="warmup iterations")
-    parser.add_argument("--iters", default=100, type=int, help="perf iterations")
+    parser.add_argument("--warmup", default=5, type=int, help="warmup iterations")
+    parser.add_argument("--iters", default=10, type=int, help="perf iterations")
     parser.add_argument("--dtype", default="bfloat16", type=str, help="data type")
 
     parser.add_argument("--profile", default=False, action="store_true", help="dump torch.profiler.profile")
@@ -227,7 +234,7 @@ if __name__ == "__main__":
     assert_allclose(torch_output, dist_triton_output, atol=atol, rtol=rtol)
     torch.cuda.synchronize()
 
-    dist_print(f"dist-triton #{RANK}", dist_triton_perf, need_sync=True, allowed_ranks=list(range(WORLD_SIZE)))
+    dist_print(f"dist-triton #{RANK}, ms:{dist_triton_perf}, tflops: {2 * args.M * args.N * local_K / 1e12 / (dist_triton_perf / 1000)}", need_sync=True, allowed_ranks=list(range(WORLD_SIZE)))
     dist_print(f"torch #{RANK}", torch_perf, need_sync=True, allowed_ranks=list(range(WORLD_SIZE)))
 
     gemm_rs_op.ctx.finalize()

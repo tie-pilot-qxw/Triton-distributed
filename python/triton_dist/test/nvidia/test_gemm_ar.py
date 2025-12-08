@@ -78,8 +78,8 @@ def parse_args():
     parser.add_argument("M", type=int)
     parser.add_argument("N", type=int)
     parser.add_argument("K", type=int)
-    parser.add_argument("--warmup", default=20, type=int, help="warmup iterations")
-    parser.add_argument("--iters", default=30, type=int, help="perf iterations")
+    parser.add_argument("--warmup", default=5, type=int, help="warmup iterations")
+    parser.add_argument("--iters", default=10, type=int, help="perf iterations")
     parser.add_argument("--dtype", default="bfloat16", type=str, help="data type")
 
     parser.add_argument("--profile", default=False, action="store_true", help="dump torch.profiler.profile")
@@ -198,7 +198,10 @@ if __name__ == "__main__":
     assert_allclose(torch_output, dist_triton_output, atol=atol, rtol=rtol)
     torch.cuda.synchronize()
 
-    dist_print(f"dist-triton #{RANK}", dist_triton_perf, need_sync=True, allowed_ranks=list(range(WORLD_SIZE)))
+    total_flops = 2 * args.M * args.N * args.K // WORLD_SIZE
+    tflops_triton = total_flops / 1e12 / (dist_triton_perf / 1000)
+
+    dist_print(f"dist-triton #{RANK} time: {dist_triton_perf}ms, TFLOPS: {tflops_triton}", need_sync=True, allowed_ranks=list(range(WORLD_SIZE)))
     dist_print(f"torch #{RANK}", torch_perf, need_sync=True, allowed_ranks=list(range(WORLD_SIZE)))
 
     gemm_ar_op.finalize()

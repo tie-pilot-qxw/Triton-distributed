@@ -146,6 +146,7 @@ def test_perf_ag_gemm_tma(args, autotune=False):
     dtype = torch.float16
     rank = args.rank
     num_ranks = args.num_ranks
+    local_world_size = args.local_world_size
     shape_config = configs[args.shape_id]
     M = shape_config["M"]
     N = shape_config["N"]
@@ -166,7 +167,7 @@ def test_perf_ag_gemm_tma(args, autotune=False):
     ag_intranode_stream = torch.cuda.Stream(priority=-1)
 
     ctx = create_ag_gemm_context(A, B, rank, num_ranks, max_M=M, BLOCK_M=BLOCK_M, BLOCK_N=BLOCK_N, BLOCK_K=BLOCK_K,
-                                 stages=stages, for_correctness=False, ag_intranode_stream=ag_intranode_stream)
+                                 stages=stages, for_correctness=False, ag_intranode_stream=ag_intranode_stream, num_local_ranks=local_world_size)
 
     def func():
         return ag_gemm(A, B, ctx=ctx, persistent=args.persistent, autotune=autotune)
@@ -176,7 +177,7 @@ def test_perf_ag_gemm_tma(args, autotune=False):
         func = contextual_autotune(is_dist=True)(lambda: _func())
 
     C, duration_ms = perf_func(func, iters=10, warmup_iters=5)
-    dist_print(f"rank{RANK}: {duration_ms:0.2f} ms/iter", need_sync=True, allowed_ranks=list(range(WORLD_SIZE)))
+    dist_print(f"rank{RANK}: {duration_ms:0.2f} ms/iter TFLOPS: {2 * M * N_per_rank * K / 1e12 / (duration_ms / 1000)}", need_sync=True, allowed_ranks=list(range(WORLD_SIZE)))
 
     with group_profile("ag_gemm_perf_{os.environ['TORCHELASTIC_RUN_ID']}", args.profile, group=args.default_group):
         for i in range(20):

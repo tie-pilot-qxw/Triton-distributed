@@ -510,7 +510,7 @@ class group_profile:
         do_prof: bool = True,
         merge_group: bool = True,
         keep_merged_only: bool = True,
-        compress: bool = True,
+        compress: bool = False,
         group: Optional[torch.distributed.ProcessGroup] = None,
     ):
         self.name = name
